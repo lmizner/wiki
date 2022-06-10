@@ -35,3 +35,15 @@ def get_entry(title):
         return f.read().decode("utf-8")
     except FileNotFoundError:
         return None
+
+
+def get_related_entries(title):
+    """
+    Returns a list of encyclopedia entries where the search 
+    query/title input is a substring of the entry name.
+    """
+    related_entries = []
+    for entry_name in list_entries():
+        if title.lower() in entry_name.lower():
+            related_entries.append(entry_name)
+    return related_entries

@@ -8,8 +8,9 @@ def search(request):
     all_entries = util.list_entries()
 
     if search_query in all_entries:
+        entry_page = util.get_entry(search_query)
         return(request, "encyclopedia/entry.html", {
-            "entry_page": markdowner.convert(search_query),
+            "entry_page": markdowner.convert(entry_page),
             "entry_title": search_query
         })
     

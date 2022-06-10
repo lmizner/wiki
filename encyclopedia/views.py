@@ -2,68 +2,112 @@ from re import M
 
 from django.shortcuts import render
 from django import forms
+from django.urls import reverse
 from django.http import HttpResponseRedirect
 
 from . import util
 from markdown2 import Markdown
-from random import randint
 from random import choice
 
-# Form to create new entry pages
+
 class NewEntryForm(forms.Form):
-    title = forms.CharField(label = "Title")
-    content = forms.CharField(widget=forms.Textarea(attrs={"rows":5, "cols": 20}), label = "Content")
+    title = forms.CharField(label="Title", widget=forms.TextInput(attrs={'class' : 'form-control col-md-8 col-lg-8', 'rows' : 1}))
+    content = forms.CharField(label="Content", widget=forms.Textarea(attrs={'class' : 'form-control col-md-8 col-lg-8', 'rows' : 10}))
 
 
-# Form to edit existing entry pages
 class EditEntryForm(forms.Form):
-    title = forms.CharField(label = "Edit Title")
-    content = forms.CharField(widget=forms.Textarea(attrs={"rows":5, "cols": 20}), label = "Edit Content")
+    title = forms.CharField(label="Entry Title", widget=forms.TextInput(attrs={'class' : 'form-control col-md-8 col-lg-8', 'rows': 1}))
+    content = forms.CharField(label="Edit Content", widget=forms.Textarea(attrs={'class' : 'form-control col-md-8 col-lg-8', 'rows' : 10}))
+    edit = forms.BooleanField(initial=False, widget=forms.HiddenInput(), required=False)
 
 
-# Index Page, returns all entries in a list
 def index(request):
     return render(request, "encyclopedia/index.html", {
         "entries": util.list_entries()
     })
 
 
-# Display a specific entry page
-def entry(request, title):
+def entry(request, entry):
     markdowner = Markdown()
-
-    # Retrieve entry page by title
-    entry_page = util.get_entry(title)
-
-    # Check if title page exists
-    # If no title page exists, display the error page
-    if entry_page is None:
-        return render(request, "encyclopedia/error.html")
-        
-    # If the title page exists, display the title of the entry and converted markdown content
+    entryPage = util.get_entry(entry)
+    if entryPage is None:
+        return render(request, "encyclopedia/error.html", {
+            "entryTitle": entry
+        })
     else:
         return render(request, "encyclopedia/entry.html", {
-            "entry_page": markdowner.convert(entry_page),
-            "entry_title": entry
+            "entry": markdowner.convert(entryPage),
+            "entryTitle": entry
         })
 
 
-# Returns an entry page at random
+def search(request):
+    value = request.GET.get('q','')
+    if(util.get_entry(value) is not None):
+        return HttpResponseRedirect(reverse("entry", kwargs={'entry': value}))
+    else:
+        subStringEntries = []
+        for entry in util.list_entries():
+            if value.upper() in entry.upper():
+                subStringEntries.append(entry)
+        
+        return render(request, "encyclopedia/index.html", {
+            "entries": subStringEntries,
+            "search": True, 
+            "value": value
+        })
+
+
+def new(request):
+    if request.method == "POST":
+        form = NewEntryForm(request.POST)
+        if form.is_valid():
+            title = form.cleaned_data["title"]
+            content = form.cleaned_data["content"]
+            if(util.get_entry(title) is None or form.cleaned_data["edit"] is True):
+                util.save_entry(title, content)
+                return HttpResponseRedirect(reverse("entry", kwargs={'entry': title}))
+            else:
+                return render(request, "encyclopedia/new.html", {
+                    "form": form,
+                    "existing": True,
+                    "entry": title
+                })
+        else:
+            return render(request, "encyclopedia/new.html", {
+                "form": form,
+                "existing": False
+            })
+    else:
+        return render(request, "encyclopedia/new.html", {
+            "form": NewEntryForm(),
+            "existing": False
+        })
+
+
+def edit(request, title):
+    entry_page = util.get_entry(title)
+    if entry_page is None: 
+        return render(request, "encyclopedia/error.html", {
+            "entry_title": title
+        })
+    else:
+        form = EditEntryForm()
+        form.fields["title"].initial = title
+        # form.fields["title"].widget = forms.HiddenInput()
+        form.fields["content"].initial = entry_page
+        # form.fields["edit"].initial = True
+        return render(request, "encyclopedia/edit.html", {
+            "form": form,
+            "title": title,
+            "content": entry_page
+            # "edit": form.fields["edit"].initial,
+            # "entry_title": form.fields["title"].initial
+        })
+
+
 def random(request):
-    markdowner = Markdown()
-
-    # Obtain list of all entries
-    all_entries = util.list_entries()
-
-    # Use choice funtion to select a random entry from the list
-    random_entry = choice(all_entries)
-
-    # Retrieves the encyclopedia entry corresponding to the "random_entry" title
-    entry_page = util.get_entry(random_entry)
-    
-    # Renders the screen with entry title and contents
-    return render(request, "encyclopedia/random.html", {
-        "entry_page": markdowner.convert(entry_page),
-        "entry_title": random_entry
-    })
+    entries = util.list_entries()
+    random_entry = choice(entries)
+    return HttpResponseRedirect(reverse("entry", kwargs={'entry': random_entry}))
 

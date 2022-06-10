@@ -1,9 +1,15 @@
 {% extends "encyclopedia/layout.html" %}
 
 {% block title %}
-    {{ entry_title }}
+    Edit Entry
 {% endblock %}
 
 {% block body %}
-    {{ entry_page|safe }}
+    <div>
+        <form action="edit" method="POST">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <input type="submit">
+        </form>
+    </div>
 {% endblock %}
