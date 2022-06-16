@@ -27,24 +27,24 @@ def index(request):
     })
 
 
-def entry(request, entry):
+def entry(request, title):
     markdowner = Markdown()
-    entryPage = util.get_entry(entry)
-    if entryPage is None:
+    entry_page = util.get_entry(title)
+    if entry_page is None:
         return render(request, "encyclopedia/error.html", {
-            "entryTitle": entry
+            "entry_title": title
         })
     else:
         return render(request, "encyclopedia/entry.html", {
-            "entry": markdowner.convert(entryPage),
-            "entryTitle": entry
+            "entry": markdowner.convert(entry_page),
+            "entry_title": title
         })
 
 
 def search(request):
     value = request.GET.get('q','')
     if(util.get_entry(value) is not None):
-        return HttpResponseRedirect(reverse("entry", kwargs={'entry': value}))
+        return HttpResponseRedirect(reverse("entry", kwargs={'title': value}))
     else:
         subStringEntries = []
         for entry in util.list_entries():
@@ -64,14 +64,14 @@ def new(request):
         if form.is_valid():
             title = form.cleaned_data["title"]
             content = form.cleaned_data["content"]
-            if(util.get_entry(title) is None or form.cleaned_data["edit"] is True):
+            if(util.get_entry(title) is None):
                 util.save_entry(title, content)
-                return HttpResponseRedirect(reverse("entry", kwargs={'entry': title}))
+                return HttpResponseRedirect(reverse("entry", kwargs={'title': title}))
             else:
                 return render(request, "encyclopedia/new.html", {
                     "form": form,
                     "existing": True,
-                    "entry": title
+                    "title": title
                 })
         else:
             return render(request, "encyclopedia/new.html", {
@@ -86,28 +86,35 @@ def new(request):
 
 
 def edit(request, title):
-    entry_page = util.get_entry(title)
-    if entry_page is None: 
-        return render(request, "encyclopedia/error.html", {
-            "entry_title": title
-        })
-    else:
-        form = EditEntryForm()
-        form.fields["title"].initial = title
-        # form.fields["title"].widget = forms.HiddenInput()
-        form.fields["content"].initial = entry_page
-        # form.fields["edit"].initial = True
-        return render(request, "encyclopedia/edit.html", {
-            "form": form,
-            "title": title,
-            "content": entry_page
-            # "edit": form.fields["edit"].initial,
-            # "entry_title": form.fields["title"].initial
-        })
+    if request.method == "GET":
+        entry_page = util.get_entry(title)
+
+        if entry_page == None:
+            return render(request, "encyclopedia/error.html", {
+                "entry_title": title
+            })
+        else:
+            return render(request, "encyclopedia/edit.html", {
+                "title": title,
+                "form": EditEntryForm(initial={"content": entry_page})
+            })
+    
+    elif request.method == "POST":
+        form = EditEntryForm(request.POST)
+
+        if form.is_valid():
+            content = form.cleaned_data['content']
+            util.save_entry(title, content)
+            return HttpResponseRedirect(reverse("entry", kwargs={"title": title}))
+
+        else:
+            return render(request, "encyclopedia/error.html", {
+                "entry_title": title
+            })
 
 
 def random(request):
     entries = util.list_entries()
     random_entry = choice(entries)
-    return HttpResponseRedirect(reverse("entry", kwargs={'entry': random_entry}))
+    return HttpResponseRedirect(reverse("entry", kwargs={'title': random_entry}))
 
